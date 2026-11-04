@@ -9,5 +9,4 @@ class EventEmitter:
         for listener in self.listeners:
             listener(event_type, data)
 
-# Global event manager instance
 event_bus = EventEmitter()

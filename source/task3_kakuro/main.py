@@ -3,7 +3,6 @@ from solver import KakuroSolver
 from events import event_bus
 
 def ui_listener(event_type, data):
-    """Hàm lắng nghe sự kiện phục vụ UI hoặc log trực quan."""
     if event_type == "ASSIGN":
         cell, val = data
         pass

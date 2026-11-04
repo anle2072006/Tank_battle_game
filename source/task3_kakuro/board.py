@@ -1,11 +1,9 @@
 class Cell:
-    """Lớp cơ sở cho các ô trên bảng Kakuro."""
     def __init__(self, row, col):
         self.row = row
         self.col = col
 
 class WhiteCell(Cell):
-    """Ô trắng chứa giá trị số (1-9) cần tìm."""
     def __init__(self, row, col):
         super().__init__(row, col)
         self.value = 0  # 0 nghĩa là chưa điền
@@ -15,27 +13,19 @@ class WhiteCell(Cell):
         self.domain = set(range(1, 10))
 
 class ClueCell(Cell):
-    """Ô đen chứa gợi ý tổng (Row Sum / Col Sum)."""
     def __init__(self, row, col, row_sum=None, col_sum=None):
         super().__init__(row, col)
-        self.row_sum = row_sum  # Tổng cho hàng ngang bên phải
-        self.col_sum = col_sum  # Tổng cho cột dọc bên dưới
+        self.row_sum = row_sum  # Tổng ngang bên phải
+        self.col_sum = col_sum  # Tổng dọc bên dưới
 
 class Run:
-    """Đại diện cho một dãy ô trắng (run) có tổng cố định không lặp chữ số."""
     def __init__(self, target_sum, cells, direction):
         self.target_sum = target_sum
-        self.cells = cells  # Danh sách các đối tượng WhiteCell
-        self.direction = direction  # 'H' (Horizontal) hoặc 'V' (Vertical)
+        self.cells = cells
+        self.direction = direction  # 'H' hoặc 'V'
 
 class Board:
-    """Quản lý toàn bộ cấu trúc bảng và các run."""
     def __init__(self, grid_data):
-        """
-        grid_data: ma trận biểu diễn bảng.
-        - Ô trắng: 0 hoặc None
-        - Ô gợi ý: Tuple (row_sum, col_sum) với None nếu không có gợi ý hướng đó.
-        """
         self.rows = len(grid_data)
         self.cols = len(grid_data[0])
         self.grid = []
@@ -50,18 +40,22 @@ class Board:
             row_cells = []
             for c in range(self.cols):
                 val = grid_data[r][c]
-                if val == 0 or val is None:
+                if val == 0:
                     cell = WhiteCell(r, c)
                     self.white_cells.append(cell)
                     row_cells.append(cell)
                 else:
-                    row_sum, col_sum = val if isinstance(val, tuple) else (None, None)
+                    # Ô xám trống dùng (None, None), ô clue dùng (row_sum, col_sum)
+                    if isinstance(val, tuple):
+                        row_sum, col_sum = val
+                    else:
+                        row_sum, col_sum = None, None
                     cell = ClueCell(r, c, row_sum, col_sum)
                     row_cells.append(cell)
             self.grid.append(row_cells)
 
     def _extract_runs(self):
-        # Trích xuất các run ngang (Horizontal runs)
+        # Trích xuất run ngang (Horizontal runs)
         for r in range(self.rows):
             c = 0
             while c < self.cols:
@@ -77,7 +71,7 @@ class Board:
                             self.runs.append(Run(target, run_cells, 'H'))
                 c += 1
 
-        # Trích xuất các run dọc (Vertical runs)
+        # Trích xuất run dọc (Vertical runs)
         for c in range(self.cols):
             r = 0
             while r < self.rows:
@@ -93,8 +87,16 @@ class Board:
                             self.runs.append(Run(target, run_cells, 'V'))
                 r += 1
 
-    def get_cell(self, r, c):
-        return self.grid[r][c]
+    def print_structure_stats(self):
+        num_white = len(self.white_cells)
+        num_runs = len(self.runs)
+        total_row_sum = sum(run.target_sum for run in self.runs if run.direction == 'H')
+        total_col_sum = sum(run.target_sum for run in self.runs if run.direction == 'V')
+        print(f"Số ô trắng: {num_white}")
+        print(f"Số run: {num_runs}")
+        print(f"Tổng ngang: {total_row_sum}")
+        print(f"Tổng dọc: {total_col_sum}")
+        return num_white, num_runs, total_row_sum, total_col_sum
 
     def display(self):
         for r in range(self.rows):
@@ -102,8 +104,8 @@ class Board:
             for c in range(self.cols):
                 cell = self.grid[r][c]
                 if isinstance(cell, ClueCell):
-                    rs = f"{cell.row_sum}" if cell.row_sum else ""
-                    cs = f"{cell.col_sum}" if cell.col_sum else ""
+                    rs = f"{cell.row_sum}" if cell.row_sum is not None else ""
+                    cs = f"{cell.col_sum}" if cell.col_sum is not None else ""
                     row_str.append(f"[{rs}\\{cs}]")
                 else:
                     val = cell.value if cell.value != 0 else "."

@@ -1,5 +1,7 @@
 from itertools import combinations
+from functools import lru_cache
 
+@lru_cache(maxsize=None)
 def get_valid_combinations(target_sum, length):
     valid_combos = []
     for combo in combinations(range(1, 10), length):
