@@ -1,48 +1,54 @@
 from board import Board
 from solver import KakuroSolver
 from events import event_bus
+import time
 
 def ui_listener(event_type, data):
-    if event_type == "ASSIGN":
-        cell, val = data
-        pass
-    elif event_type == "BACKTRACK":
-        pass
+    pass
 
 if __name__ == "__main__":
-    # Đăng ký listener mẫu
     event_bus.subscribe(ui_listener)
 
-    # Khởi tạo bảng Kakuro phức tạp 9x9 (mô phỏng đề bài Task 3)
-    # None hoặc 0 là ô trắng. Tuple (row_sum, col_sum) là ô gợi ý đen.
-    # Dưới đây là cấu trúc mẫu mô phỏng bảng 9x9 theo yêu cầu đồ án:
-    sample_grid = [
-        [None, (44, None), (16, None), (9, None), None, (15, None), (44, None), None, None],
-        [(22, None), 0, 0, 0, (11, 3), 0, 0, (14, None), None],
-        [(28, None), 0, 0, 0, 0, 0, 0, 0, 0],
-        [(14, None), 0, 0, (20, 12), 0, 0, 0, 0, 0],
-        [(17, None), 0, 0, (29, 22), 0, 0, 0, 0, (7, None)],
-        [None, (28, 12), 0, 0, 0, 0, (12, None), 0, 0],
-        [(14, None), 0, 0, 0, (7, None), (12, 6), 0, 0, 0],
-        [(39, None), 0, 0, 0, 0, 0, 0, 0, 0],
-        [None, (16, None), 0, 0, (8, None), 0, 0, 0, None]
+    # 1. Kiểm tra bảng 5x5 mẫu (nếu cần)
+    sample_grid_5x5 = [
+        [(None, None), (None, None), (None, None), (21, None), (14, None)],
+        [(None, None), (14, 12), (None, None), 0, 0, (11, None)],
+        [(21, None), 0, 0, 0, 0],
+        [(11, None), 0, 0, 0, 0],
+        [(None, None), (None, 16), 0, 0, (None, None)]
     ]
 
-    print("=== TRẠNG THÁI BẢNG KAKURO BAN ĐẦU ===")
-    board = Board(sample_grid)
-    board.display()
+    # 2. Bảng 9x9 chuẩn xác theo đề bài (Đúng các hướng dẫn về thứ tự cột, tuple, và ô xám (None, None))
+    sample_grid_9x9 = [
+        [(None, None), (None, None), (None, 44), (None, 16), (None, 9), (None, None), (None, 15), (None, 44), (None, None)],
+        [(22, None), 0, 0, 0, (3, 11), 0, 0, (14, None), (None, None)],
+        [(28, None), 0, 0, 0, 0, 0, 0, 0, 0],
+        [(14, None), 0, 0, (None, None), (12, 20), 0, 0, 0, 0],
+        [(17, None), 0, 0, (22, 29), 0, 0, 0, 0, (None, 7)],
+        [(None, None), (12, 28), 0, 0, 0, 0, (None, 12), 0, 0],
+        [(14, None), 0, 0, 0, (None, 7), (6, 12), 0, 0, 0],
+        [(39, None), 0, 0, 0, 0, 0, 0, 0, 0],
+        [(None, None), (16, None), 0, 0, (None, 8), 0, 0, 0, (None, None)]
+    ]
 
-    print("\nĐang chạy thuật toán giải CSP (Constraint Propagation + Backtracking + MRV)...")
-    solver = KakuroSolver(board)
+    print("=== KIỂM TRA CẤU TRÚC BẢNG 9x9 ===")
+    board_9x9 = Board(sample_grid_9x9)
+    num_white, num_runs, total_h, total_v = board_9x9.print_structure_stats()
+
+    # Kiểm tra nhanh tính chính xác của cấu trúc bảng
+    assert num_white == 48 and num_runs == 28 and total_h == 249 and total_v == 249, \
+        "Cấu trúc bảng chưa khớp với thông số yêu cầu (48, 28, 249, 249)!"
+
+    print("\n[OK] Cấu trúc bảng hoàn toàn chính xác! Đang tiến hành giải bảng Kakuro 9x9...")
     
-    import time
+    solver = KakuroSolver(board_9x9)
     start_time = time.time()
     success = solver.solve()
     end_time = time.time()
 
     if success:
-        print(f"\n[THÀNH CÔNG] Đã tìm thấy lời giải sau {end_time - start_time:.4f} giây!\n")
-        print("=== KẾT QUẢ GIẢI KAKURO ===")
-        board.display()
+        print(f"\n[THÀNH CÔNG] Đã giải xong bảng 9x9 trong {end_time - start_time:.4f} giây!\n")
+        print("=== KẾT QUẢ GIẢI KAKURO 9x9 ===")
+        board_9x9.display()
     else:
-        print("\n[THẤT BẠI] Không tìm thấy lời giải hợp lệ cho bảng này.")
+        print("\n[THẤT BẠI] Không tìm thấy lời giải.")
