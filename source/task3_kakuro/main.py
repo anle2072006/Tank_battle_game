@@ -1,66 +1,83 @@
+from collections import Counter
+
 from board import Board
 from solver import KakuroSolver
 from events import event_bus
 from validator import Validator
-import time
+from experiments import (compare_configs, results_table, stability_test, run_config,
+                         count_solutions, is_fully_valid)
+from puzzles import (SAMPLE_5X5, SAMPLE_9X9, UNSOLVABLE_COMBO, UNSOLVABLE_SEARCH,
+                     MULTI_SOLUTION)
 
-def ui_listener(event_type, data):
-    pass
+MAX_ASSIGNMENTS = 50000
+
+
+class EventRecorder:
+    """Listener mẫu cho UI: ghi lại toàn bộ sự kiện để phát lại sau."""
+    def __init__(self):
+        self.events = []
+
+    def __call__(self, event_type, data):
+        self.events.append((event_type, data))
+
+
+def check_structure(grid, expected, name):
+    board = Board(grid)
+    stats = board.print_structure_stats()
+    assert stats == expected, f"Cấu trúc bảng {name} sai: {stats}, cần {expected}"
+    print(f"[OK] Bảng {name} đúng cấu trúc\n")
+
+
+def demo_solve(grid, name):
+    recorder = EventRecorder()
+    event_bus.subscribe(recorder)
+    board = Board(grid)
+    solver = KakuroSolver(board)
+    success = solver.solve()
+    event_bus.unsubscribe(recorder)
+
+    ok = success and is_fully_valid(board)
+    print(f"[{'THÀNH CÔNG' if ok else 'THẤT BẠI'}] Bảng {name}: {solver.get_stats()}")
+    counts = Counter(event_type for event_type, _ in recorder.events)
+    print(f"Sự kiện đã phát: {dict(counts)}")
+    if ok:
+        board.display()
+    print()
+
 
 if __name__ == "__main__":
-    event_bus.subscribe(ui_listener)
+    print("=== 1. KIỂM TRA CẤU TRÚC BẢNG ===")
+    check_structure(SAMPLE_5X5, (12, 8, 60, 60), "5x5")
+    check_structure(SAMPLE_9X9, (48, 28, 249, 249), "9x9")
 
-    # 1. Bảng 5x5 đã được sửa chuẩn xác theo danh sách lỗi
-    sample_grid_5x5 = [
-        [(None, None), (None, None), (None, 21), (None, 14), (None, None)],
-        [(None, None), (12, 14), 0, 0, (None, 11)],
-        [(21, None), 0, 0, 0, 0],
-        [(11, None), 0, 0, 0, 0],
-        [(None, None), (16, None), 0, 0, (None, None)]
-    ]
+    print("=== 2. GIẢI BẢNG 5x5 VÀ 9x9 (MRV, không LCV) ===")
+    demo_solve(SAMPLE_5X5, "5x5")
+    demo_solve(SAMPLE_9X9, "9x9")
 
-    # 2. Bảng 9x9 đã được sửa đúng 16 điểm theo danh sách chi tiết
-    sample_grid_9x9 = [
-        [(None, None), (None, None), (None, 44), (None, 16), (None, 9), (None, None), (None, 15), (None, 44), (None, None)], # Hàng 0
-        [(None, None), (22, None), 0, 0, 0, (3, 11), 0, 0, (None, 14)],                                                           # Hàng 1 (Đã sửa cột 0, cột 1, 4, 5, 7, 8)
-        [(None, None), (28, 17), 0, 0, 0, 0, 0, 0, 0],                                                                           # Hàng 2 (Đã sửa cột 0, cột 1 chung 28,17)
-        [(14, None), 0, 0, (None, None), (20, 12), 0, 0, 0, 0],                                                                  # Hàng 3 (Đã sửa (12,20) thành (20,12))
-        [(17, None), 0, 0, (22, 29), 0, 0, 0, 0, (None, 7)],                                                                     # Hàng 4
-        [(None, None), (28, 12), 0, 0, 0, 0, (12, None), 0, 0],                                                                  # Hàng 5 (Đã sửa (12,28) thành (28,12) và (None,12) thành (12,None))
-        [(14, None), 0, 0, 0, 0, (None, 7), (6, 12), 0, 0],                                                                      # Hàng 6 (Đã sửa cột 4, 5, 6)
-        [(39, None), 0, 0, 0, 0, 0, 0, 0, (None, None)],                                                                         # Hàng 7 (Đã sửa ô cuối cột 8 thành (None, None))
-        [(None, None), (16, None), 0, 0, (8, None), 0, 0, 0, (None, None)]                                                       # Hàng 8 (Đã sửa (None,8) thành (8,None))
-    ]
+    print("=== 3. SO SÁNH CÁC CẤU HÌNH TRÊN BẢNG 9x9 (có lan truyền) ===")
+    configs = [(v, l, True) for v in ("none", "mrv", "degree", "mrv_degree") for l in ("none", "lcv")]
+    print(results_table(compare_configs(SAMPLE_9X9, configs, MAX_ASSIGNMENTS)))
+    print(f"(giới hạn {MAX_ASSIGNMENTS} lần gán mỗi cấu hình)\n")
 
-    print("=== KIỂM TRA CẤU TRÚC BẢNG 9x9 ===")
-    board_9x9 = Board(sample_grid_9x9)
-    num_white, num_runs, total_h, total_v = board_9x9.print_structure_stats()
+    print("=== 4. TẮT LAN TRUYỀN RÀNG BUỘC ===")
+    no_prop = [(v, "none", False) for v in ("none", "mrv")]
+    print(results_table(compare_configs(SAMPLE_9X9, no_prop, 200000)))
+    print()
 
-    # Kiểm tra nhanh tính chính xác của cấu trúc bảng 9x9
-    assert num_white == 48 and num_runs == 28 and total_h == 249 and total_v == 249, \
-        f"Cấu trúc bảng 9x9 chưa khớp! Nhận được: White={num_white}, Runs={num_runs}, H={total_h}, V={total_v}"
+    print("=== 5. ĐỘ ỔN ĐỊNH (chạy lặp 20 lần, cấu hình mrv) ===")
+    for name, grid in (("5x5", SAMPLE_5X5), ("9x9", SAMPLE_9X9)):
+        s = stability_test(grid, "mrv", "none", True, repeats=20)
+        print(f"{name}: {s}")
+    print()
 
-    print("\n[OK] Cấu trúc bảng 9x9 hoàn toàn chính xác! Đang tiến hành giải...")
-    
-    solver_9x9 = KakuroSolver(board_9x9, var_heuristic="MRV", val_heuristic="LCV")
-    start_time = time.time()
-    success = solver_9x9.solve()
-    end_time = time.time()
+    print("=== 6. BẢNG ĐẶC BIỆT ===")
+    for name, grid in (("vô nghiệm (hết tổ hợp)", UNSOLVABLE_COMBO),
+                       ("vô nghiệm (phải tìm kiếm)", UNSOLVABLE_SEARCH)):
+        r = run_config(grid)
+        print(f"{name}: solved={r['solved']} (kỳ vọng False), số nghiệm vét cạn = {count_solutions(grid)}")
+    r = run_config(MULTI_SOLUTION)
+    print(f"nhiều nghiệm: solved={r['solved']} valid={r['valid']}, số nghiệm vét cạn = {count_solutions(MULTI_SOLUTION, limit=10)} (kỳ vọng 2)")
+    print()
 
-    if success and Validator.is_board_valid(board_9x9):
-        print(f"\n[THÀNH CÔNG] Đã giải xong bảng 9x9 trong {end_time - start_time:.4f} giây!")
-        print(f"Thống kê: {solver_9x9.assignments} gán, {solver_9x9.backtracks} quay lui.")
-        print("=== KẾT QUẢ GIẢI KAKURO 9x9 ===")
-        board_9x9.display()
-    else:
-        print("\n[THẤT BẠI] Không tìm thấy lời giải hoặc lời giải không hợp lệ.")
-
-    # 3. Kiểm tra giải nhanh bảng 5x5
-    print("\n=== KIỂM TRA GIẢI BẢNG 5x5 ===")
-    board_5x5 = Board(sample_grid_5x5)
-    solver_5x5 = KakuroSolver(board_5x5, var_heuristic="MRV", val_heuristic="LCV")
-    if solver_5x5.solve() and Validator.is_board_valid(board_5x5):
-        print("[THÀNH CÔNG] Đã giải xong bảng 5x5!")
-        board_5x5.display()
-    else:
-        print("[THẤT BẠI] Bảng 5x5 không tìm thấy lời giải.")
+    print("=== 7. KIỂM CHỨNG ĐỘC LẬP: SỐ NGHIỆM CỦA ĐỀ ===")
+    print(f"5x5: {count_solutions(SAMPLE_5X5)} nghiệm (dừng ở 2), 9x9: {count_solutions(SAMPLE_9X9)} nghiệm (dừng ở 2)")
