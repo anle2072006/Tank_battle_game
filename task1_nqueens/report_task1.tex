@@ -1,0 +1,46 @@
+% Paste into the IEEE Overleaf template. Figures: results/sat_scaling.png, results/mc_heuristics.png
+\section{Task 1: N-Queens -- Propositional Logic and Local Search}
+
+\subsection{Propositional formulation}
+Let $x_{r,c}$ be true iff a queen is on row $r$, column $c$ ($N^2$ variables).
+The constraints, all in CNF, are:
+\begin{itemize}
+  \item every row and every column has at least one queen: $\bigvee_{c} x_{r,c}$ and $\bigvee_{r} x_{r,c}$;
+  \item no two queens share a line: for any two distinct squares $a,b$ on the same row,
+        column or diagonal, the clause $(\neg a \lor \neg b)$ (i.e.\ $a \rightarrow \neg b$).
+\end{itemize}
+The formula has $2N + 2N\binom{N}{2} + 2\bigl(2\sum_{k=1}^{N-1}\binom{k}{2}+\binom{N}{2}\bigr)$
+clauses, i.e.\ $\Theta(N^3)$. The satisfying assignment is decoded from the model returned by
+Glucose3 (PySAT) and checked independently.
+
+\subsection{Min-Conflicts with a variable-selection heuristic}
+The state is $\text{queens}[c]=r$ (one queen per column). Row and diagonal counters give the
+conflicts of any square in $O(1)$. At each step a conflicted column is chosen and moved to the row
+with the fewest conflicts (random tie-breaking); restarts are used after a step limit.
+We compare three variable-selection rules: \emph{random} (standard), \emph{max-conflict}, and the
+proposed \emph{oldest} rule that scores a conflicted column by
+$\text{conflicts}\times(1+\text{age}/N)$, where age is the number of steps since the column was last moved.
+We also compare random initialisation with a greedy (min-conflict) initialisation.
+
+\subsection{Experiments}
+Hardware/OS: macOS 13.7.8, Intel Core i5. SAT: $N=4,\dots,50$. Min-Conflicts: $N=8,\dots,1000$, 20 runs per setting.
+
+\begin{table}[h]
+\centering\caption{Glucose3 results (seconds).}
+\begin{tabular}{rrrr}
+\hline $N$ & \#Clauses & Encode & Solve\\\hline
+4 & 84 & 0.0002 & 0.0003\\
+8 & 744 & 0.0003 & 0.0005\\
+16 & 6{,}352 & 0.0011 & 0.0137\\
+32 & 52{,}640 & 0.0095 & 0.0169\\
+50 & 203{,}450 & 0.0785 & 0.0607\\\hline
+\end{tabular}
+\end{table}
+
+% NOTE: re-run run_experiments.py on the Mac used for evaluation and update the numbers above.
+
+\subsection{Discussion}
+Clauses grow cubically but Glucose3 solves all tested instances ($N\le 50$) in well under a
+second. Min-Conflicts scales to $N=1000$ in $\approx0.2$\,s. Greedy initialisation cuts the mean steps
+at $N=1000$ from $\approx 700$ to $\approx 80$, and the \emph{oldest} rule further reduces steps
+(about $49$ vs.\ $82$ for random selection with greedy init). All runs succeeded.
