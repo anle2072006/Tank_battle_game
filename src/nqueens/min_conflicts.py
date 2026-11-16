@@ -133,6 +133,33 @@ class MinConflictsSolver:
                 return self._result(True, total_steps, restart, t0)
         return self._result(False, total_steps, self.max_restarts, t0)
 
+    def iter_steps(self):
+        """Step-by-step version of solve() for visualisation.
+
+        Yields (total_steps, restart, moved_col, num_conflicted_columns) after the
+        initialisation (moved_col=None) and after every move. The current state is
+        in self.q. The generator stops when solved (num_conflicted == 0) or when
+        all restarts are used up.
+        """
+        total = 0
+        for restart in range(self.max_restarts + 1):
+            self._init_state()
+            conflicted = self._conflicted()
+            yield total, restart, None, len(conflicted)
+            for step in range(1, self.max_steps + 1):
+                if not conflicted:
+                    return
+                c = self._pick_column(conflicted, step)
+                r = self._best_row(c)
+                self._remove(c)
+                self._place(c, r)
+                self.last_moved[c] = step
+                total += 1
+                conflicted = self._conflicted()
+                yield total, restart, c, len(conflicted)
+            if not conflicted:
+                return
+
     def _result(self, solved, steps, restarts, t0) -> MCResult:
         return MCResult(self.n, solved, steps, restarts,
                         time.perf_counter() - t0, QueensBoard(self.n, list(self.q)))

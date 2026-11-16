@@ -11,12 +11,14 @@ Python 3.9+ and the packages in `requirements.txt`:
     nqueens/sat_solver.py    SATQueensSolver: solves the CNF with Glucose3 (PySAT)
     nqueens/min_conflicts.py MinConflictsSolver: Min-Conflicts + heuristics
     main.py                  command-line demo
+    gui.py                   PyGame GUI (animated Min-Conflicts + SAT)
     run_experiments.py       experiments -> results/*.csv, results/*.png
     demo.txt                 sample output
 
 ## Usage
     python main.py --n 8 --method sat
     python main.py --n 8 --method mc --var-heuristic oldest --init greedy --seed 1
+    python gui.py                      # graphical interface
     python run_experiments.py          # full experiments (a few minutes)
     python run_experiments.py --quick  # small run
 
