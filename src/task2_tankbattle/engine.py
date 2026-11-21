@@ -1,13 +1,14 @@
 from enum import Enum
 from typing import List, Tuple, Dict, Optional
 
+
 class Action(Enum):
     MOVE_UP = (0, -1)
     MOVE_DOWN = (0, 1)
     MOVE_LEFT = (-1, 0)
     MOVE_RIGHT = (1, 0)
-    FIRE = (0, 0)
-    STAY = (0, 0)
+    FIRE = (0, 0, "fire")
+    STAY = (0, 0, "stay")
 
 DIRECTION_DELTAS = {
     "UP": (0, -1),
