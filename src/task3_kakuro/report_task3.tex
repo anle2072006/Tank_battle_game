@@ -1,0 +1,35 @@
+% Phần Task 3 cho báo cáo IEEE (dán vào Overleaf, trong phần thân của bài).
+% Cần: \usepackage{booktabs} nếu muốn dùng \toprule; ở đây dùng \hline nên không bắt buộc.
+
+\section{Kakuro as a Constraint Satisfaction Problem}
+
+\subsection{Formulation}
+We model Kakuro as a CSP. Each white cell $(r,c)$ is a variable with domain $\{1,\dots,9\}$. A \emph{run} is a maximal sequence of consecutive white cells in a row or column that follows a clue cell. Every run $R$ with clue $s_R$ imposes two constraints: (i) all-different, i.e., the values in $R$ are pairwise distinct, and (ii) the values in $R$ sum to $s_R$. Both constraints are $n$-ary, and every white cell belongs to exactly two runs (one horizontal, one vertical). The $5\times5$ example has 12 variables and 8 runs; the $9\times9$ test case has 48 variables and 28 runs, and the sum of horizontal clues equals the sum of vertical clues (249).
+
+\subsection{Approach}
+The solver combines constraint propagation with backtracking search. For each run, the valid digit combinations of the given length and sum are precomputed and cached. During propagation, combinations inconsistent with the values already assigned in the run are discarded, and the domain of each unassigned cell is reduced to the union of digits in the remaining combinations; this repeats until a fixed point, and an empty domain or an empty combination set triggers backtracking. Search uses the Minimum Remaining Values (MRV) heuristic for variable selection, the Degree heuristic as a tie-breaker, and optionally Least Constraining Value (LCV) for value ordering. Domains and assignments are saved before each trial and restored on backtracking.
+
+\subsection{Experiments}
+All results are on the $9\times9$ board from the assignment. Table~\ref{tab:kakuro} reports the number of assignments, backtracks, and run time for each configuration with propagation enabled (search capped at 50{,}000 assignments).
+
+\begin{table}[t]
+\caption{Heuristic configurations on the $9\times9$ board.}
+\label{tab:kakuro}
+\centering
+\begin{tabular}{llrrr}
+\hline
+Variable & Value & Assign. & Backtr. & Time (s) \\
+\hline
+none & none & 759 & 711 & 0.035 \\
+none & LCV & 169 & 121 & 0.008 \\
+MRV & none & 169 & 121 & 0.008 \\
+MRV & LCV & 2474 & 2426 & 0.103 \\
+MRV+Degree & none & 260 & 212 & 0.011 \\
+MRV+Degree & LCV & 660 & 612 & 0.035 \\
+Degree & none & $>$50000 & -- & limit \\
+Degree & LCV & $>$50000 & -- & limit \\
+\hline
+\end{tabular}
+\end{table}
+
+MRV gives the fewest assignments (169). The effect of LCV is not consistent: it reduces assignments with a fixed variable order (759 to 169) but increases them when combined with MRV (169 to 2474), so on this single board we only conclude that LCV is unreliable. Degree alone hits the limit. Disabling propagation requires 186{,}504 assignments, more than a thousand times as many as with propagation. The solver returned a valid solution in every run, produced identical solutions and search counts over 20 repeated runs, correctly reported unsolvable boards, and returned a valid solution for a board with two solutions. An independent exhaustive counter confirmed that both the $5\times5$ and $9\times9$ boards have exactly one solution.

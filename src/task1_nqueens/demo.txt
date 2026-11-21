@@ -1,0 +1,53 @@
+# Task 1 demo (python 3, PySAT Glucose3)
+
+$ python main.py --n 4 --method sat
+[SAT/Glucose3] N=4 vars=16 clauses=84 encode=0.0002s solve=0.0002s sat=True
+valid: True
+. . Q .
+Q . . .
+. . . Q
+. Q . .
+
+$ python main.py --n 8 --method sat
+[SAT/Glucose3] N=8 vars=64 clauses=744 encode=0.0004s solve=0.0007s sat=True
+valid: True
+. . . Q . . . .
+. Q . . . . . .
+. . . . . . Q .
+. . Q . . . . .
+. . . . . Q . .
+. . . . . . . Q
+. . . . Q . . .
+Q . . . . . . .
+
+$ python main.py --n 12 --method sat --no-print
+[SAT/Glucose3] N=12 vars=144 clauses=2620 encode=0.0010s solve=0.0021s sat=True
+valid: True
+
+$ python main.py --n 8 --method mc --var-heuristic random --init random --seed 1
+[Min-Conflicts/random/random] N=8 solved=True steps=60 restarts=0 time=0.0003s
+valid: True
+. . . . Q . . .
+. Q . . . . . .
+. . . Q . . . .
+. . . . . Q . .
+. . . . . . . Q
+. . Q . . . . .
+Q . . . . . . .
+. . . . . . Q .
+
+$ python main.py --n 8 --method mc --var-heuristic oldest --init greedy --seed 1
+[Min-Conflicts/oldest/greedy] N=8 solved=True steps=1 restarts=0 time=0.0001s
+valid: True
+. . . . . . . Q
+. . Q . . . . .
+Q . . . . . . .
+. . . . . Q . .
+. Q . . . . . .
+. . . . Q . . .
+. . . . . . Q .
+. . . Q . . . .
+
+$ python main.py --n 1000 --method mc --var-heuristic oldest --init greedy --seed 1 --no-print
+[Min-Conflicts/oldest/greedy] N=1000 solved=True steps=104 restarts=0 time=0.3002s
+valid: True
