@@ -1,11 +1,8 @@
-
 import pygame
 import importlib.util
-import tkinter as tk
 import subprocess
 import sys
 
-from tkinter import filedialog
 from pathlib import Path
 from uuid import uuid4
 from engine import Action
@@ -14,6 +11,8 @@ from scenarios import MapBuilder
 
 
 CELL_SIZE = 48
+MIN_BOARD_WIDTH = 432
+MIN_CONTENT_HEIGHT = 432
 PANEL_HEIGHT = 125
 SIDEBAR_WIDTH = 240
 FPS = 60
@@ -43,7 +42,6 @@ MAP_MODES = {
     3: ("Battle City", MapBuilder.get_battle_city_map),
 }
 
-
 AI_MODES = {
     1: ("Minimax", False, False),
     2: ("Alpha-Beta", False, True),
@@ -51,9 +49,6 @@ AI_MODES = {
     4: ("Heuristic + Alpha-Beta", True, True),
     5: ("Import External Agent...", None, None),
 }
-
-SIDEBAR_WIDTH = 240
-
 
 
 class Dropdown:
@@ -64,6 +59,7 @@ class Dropdown:
         self.rect = pygame.Rect(x, y, width, 32)
         self.options = options
         self.selected = selected
+        self.custom_label = None
         self.expanded = False
         self.open_up = open_up
 
@@ -81,6 +77,14 @@ class Dropdown:
         return pygame.Rect(
             self.rect.x, y, self.rect.width, 32
         )
+
+    def _fit_text(self, text_str, font, max_width):
+        display = str(text_str)
+        while display and font.size(display)[0] > max_width:
+            display = display[:-1]
+        if display != str(text_str):
+            display = display[:-3] + "..." if len(display) > 3 else "..."
+        return display
 
     def draw(self, screen, font):
         mouse = pygame.mouse.get_pos()
@@ -101,7 +105,8 @@ class Dropdown:
             self.rect, 1, border_radius=5
         )
 
-        label = self.options[self.selected]
+        raw_label = self.custom_label if self.custom_label else self.options[self.selected]
+        label = self._fit_text(raw_label, font, self.rect.width - 28)
         text = font.render(label, True, "white")
         screen.blit(text, (self.rect.x + 8, self.rect.y + 7))
 
@@ -153,22 +158,28 @@ class Dropdown:
 
 
 class TankBattleGUI:
+    def _compute_cell_size(self):
+        return min(CELL_SIZE, 540 // self.state.height)
+
+    def _compute_layout(self):
+        self.cell_size = self._compute_cell_size()
+        actual_w = self.state.width * self.cell_size
+        actual_h = self.state.height * self.cell_size
+
+        self.board_width = max(actual_w, MIN_BOARD_WIDTH)
+        self.content_height = max(actual_h, MIN_CONTENT_HEIGHT)
+        self.board_offset_x = (self.board_width - actual_w) // 2
+        self.board_offset_y = (self.content_height - actual_h) // 2
+
+        self.width = self.board_width + SIDEBAR_WIDTH
+        self.height = self.content_height + PANEL_HEIGHT
+
     def __init__(self):
         pygame.init()
 
         self.map_mode = 2
         self.state = MAP_MODES[self.map_mode][1]()
-
-        self.board_width = self.state.width * CELL_SIZE
-        
-        self.content_height = max(
-            self.state.height * CELL_SIZE,
-            432
-        )
-        self.width = self.board_width + SIDEBAR_WIDTH
-        self.height = self.content_height + PANEL_HEIGHT
-
-
+        self._compute_layout()
 
         self.screen = pygame.display.set_mode(
             (self.width, self.height)
@@ -176,8 +187,9 @@ class TankBattleGUI:
         pygame.display.set_caption("Tank Battle - AI Arena")
 
         self.font = pygame.font.SysFont("Arial", 18)
-
         self.dropdown_font = pygame.font.SysFont("Arial", 12)
+        self.panel_title_font = pygame.font.SysFont("Arial", 13, bold=True)
+        self.panel_body_font = pygame.font.SysFont("Arial", 12)
 
         options = [
             AI_MODES[i][0]
@@ -212,9 +224,7 @@ class TankBattleGUI:
             open_up=False
         )
 
-
         self.clock = pygame.time.Clock()
-
 
         self.agent_modes = {
             1: 4,
@@ -231,15 +241,29 @@ class TankBattleGUI:
             2: self.create_agent(2, 4)
         }
 
-
         self.last_action = "Press SPACE to start"
         self.running = True
         self.auto_play = False
         self.turn_delay = 500  # 500 ms giữa các lượt
         self.last_turn_time = pygame.time.get_ticks()
 
-
     def choose_agent_file(self):
+        if sys.platform == "darwin":
+            applescript = (
+                'POSIX path of (choose file with prompt '
+                '"Select External AI Agent (.py)")'
+            )
+            result = subprocess.run(
+                ["osascript", "-e", applescript],
+                capture_output=True,
+                text=True,
+                check=False
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+            if "-128" in result.stderr or "User canceled" in result.stderr:
+                return ""
+            raise RuntimeError("File picker failed:\n" + result.stderr)
         script = """
 import tkinter as tk
 from tkinter import filedialog
@@ -247,6 +271,7 @@ from tkinter import filedialog
 root = tk.Tk()
 root.title("External Agent File Picker")
 root.geometry("360x100")
+root.attributes("-topmost", True)
 
 label = tk.Label(
     root,
@@ -255,6 +280,7 @@ label = tk.Label(
 label.pack(pady=20)
 
 root.lift()
+root.focus_force()
 root.update()
 
 filename = filedialog.askopenfilename(
@@ -284,15 +310,22 @@ root.destroy()
 
         return result.stdout.strip()
 
-
-
     def load_external_agent(self, player_id):
         file_path = self.choose_agent_file()
 
         if not file_path:
             return None
-
+        
         path = Path(file_path).resolve()
+        if path.suffix != ".py":
+            raise ValueError("Selected file must be a .py file")
+
+        gui_dir = str(Path(__file__).resolve().parent)
+        if gui_dir not in sys.path:
+            sys.path.insert(0, gui_dir)
+        parent_dir = str(path.parent)
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
 
         module_name = f"external_agent_{uuid4().hex}"
 
@@ -329,13 +362,14 @@ root.destroy()
 
         return SearchAgent(
             player_id=player_id,
-            max_depth=2,
+            max_depth=4,
             use_heuristic=heuristic,
             use_alpha_beta=alpha_beta
         )
 
-
     def change_agent(self, player_id, mode):
+        dropdown = self.dropdown_p1 if player_id == 1 else self.dropdown_p2
+
         if mode == 5:
             try:
                 result = self.load_external_agent(player_id)
@@ -347,19 +381,22 @@ root.destroy()
                 self.last_action = f"Import error: {type(exc).__name__}"
 
             if result is None:
-                dropdown = (
-                    self.dropdown_p1 if player_id == 1
-                    else self.dropdown_p2
-                )
                 dropdown.selected = self.agent_modes[player_id] - 1
+                dropdown.custom_label = (
+                    self.agent_labels[player_id]
+                    if self.agent_modes[player_id] == 5
+                    else None
+                )
                 return
 
             agent, agent_name = result
             label = f"External: {agent_name}"
+            dropdown.custom_label = label
 
         else:
             agent = self.create_agent(player_id, mode)
             label = AI_MODES[mode][0]
+            dropdown.custom_label = None
 
         self.agents[player_id] = agent
         self.agent_modes[player_id] = mode
@@ -369,87 +406,54 @@ root.destroy()
         self.auto_play = False
         self.last_action = f"P{player_id}: {label}"
 
-
     def draw_grid(self):
+        cs = self.cell_size
+        ox, oy = self.board_offset_x, self.board_offset_y
         for y in range(self.state.height):
             for x in range(self.state.width):
-                rect = pygame.Rect(
-                    x * CELL_SIZE,
-                    y * CELL_SIZE,
-                    CELL_SIZE,
-                    CELL_SIZE
-                )
-
-                pygame.draw.rect(
-                    self.screen, COLORS["grid"], rect, 1
-                )
+                rect = pygame.Rect(ox + x * cs, oy + y * cs, cs, cs)
+                pygame.draw.rect(self.screen, COLORS["grid"], rect, 1)
 
     def draw_entities(self):
+        cs = self.cell_size
+        ox, oy = self.board_offset_x, self.board_offset_y
+        wall_colors = {
+            3: COLORS["wall"],
+            2: (125, 74, 48),
+            1: (95, 58, 40),
+        }
+
         for (x, y), hp in self.state.walls.items():
-            rect = pygame.Rect(
-                x * CELL_SIZE + 3,
-                y * CELL_SIZE + 3,
-                CELL_SIZE - 6,
-                CELL_SIZE - 6
-            )
-            pygame.draw.rect(
-                self.screen, COLORS["wall"], rect
-            )
+            rect = pygame.Rect(ox + x * cs + 3, oy + y * cs + 3, cs - 6, cs - 6)
+            pygame.draw.rect(self.screen, wall_colors.get(hp, COLORS["wall"]), rect)
 
         for player_id, base in self.state.bases.items():
             if base.hp <= 0:
                 continue
-
             color = COLORS[f"base{player_id}"]
-            center = (
-                base.x * CELL_SIZE + CELL_SIZE // 2,
-                base.y * CELL_SIZE + CELL_SIZE // 2
-            )
-            pygame.draw.circle(
-                self.screen, color, center, CELL_SIZE // 3
-            )
+            center = (ox + base.x * cs + cs // 2, oy + base.y * cs + cs // 2)
+            pygame.draw.circle(self.screen, color, center, cs // 3)
 
+        tank_pad = max(6, cs // 6)
         for player_id, tank in self.state.tanks.items():
             if tank.hp <= 0:
                 continue
-
             color = COLORS[f"tank{player_id}"]
-            center = pygame.Vector2(
-                tank.x * CELL_SIZE + CELL_SIZE // 2,
-                tank.y * CELL_SIZE + CELL_SIZE // 2
-            )
-
+            center = pygame.Vector2(ox + tank.x * cs + cs // 2, oy + tank.y * cs + cs // 2)
             pygame.draw.rect(
                 self.screen,
                 color,
-                (
-                    tank.x * CELL_SIZE + 8,
-                    tank.y * CELL_SIZE + 8,
-                    CELL_SIZE - 16,
-                    CELL_SIZE - 16
-                ),
+                (ox + tank.x * cs + tank_pad, oy + tank.y * cs + tank_pad, cs - 2 * tank_pad, cs - 2 * tank_pad),
                 border_radius=5
             )
-
             dx, dy = DIRECTIONS[tank.direction]
-            end = center + pygame.Vector2(
-                dx, dy
-            ) * (CELL_SIZE // 2)
+            end = center + pygame.Vector2(dx, dy) * (cs // 2)
+            pygame.draw.line(self.screen, (255, 255, 255), center, end, max(3, cs // 10))
 
-            pygame.draw.line(
-                self.screen, (255, 255, 255),
-                center, end, 5
-            )
-
+        bullet_radius = max(4, cs // 9)
         for bullet in self.state.bullets:
-            center = (
-                bullet.x * CELL_SIZE + CELL_SIZE // 2,
-                bullet.y * CELL_SIZE + CELL_SIZE // 2
-            )
-            pygame.draw.circle(
-                self.screen, COLORS["bullet"], center, 5
-            )
-
+            center = (ox + bullet.x * cs + cs // 2, oy + bullet.y * cs + cs // 2)
+            pygame.draw.circle(self.screen, COLORS["bullet"], center, bullet_radius)
 
     def draw_sidebar(self):
         x = self.board_width
@@ -496,7 +500,6 @@ root.destroy()
             )
             self.screen.blit(text, (rect.x + 12, rect.y + 9))
 
-
         # Map Selection
         map_rect = pygame.Rect(
             x + 18, 240, 204, 68
@@ -528,12 +531,10 @@ root.destroy()
             (x + 30, 249)
         )
 
-
         # Controls fills remaining space
         controls_rect = pygame.Rect(
             x + 12, 318, 216, h - 330
         )
-
 
         pygame.draw.rect(
             self.screen, (35, 45, 60),
@@ -561,7 +562,6 @@ root.destroy()
                 text, (x + 24, 359 + i * 23)
             )
 
-
         # Draw dropdowns last
         dropdowns = [
             self.dropdown_p1,
@@ -584,9 +584,6 @@ root.destroy()
                     self.screen,
                     self.dropdown_font
                 )
-
-
-
 
     def draw_panel(self):
         y = self.content_height
@@ -654,8 +651,8 @@ root.destroy()
             )
         ]
 
-        title_font = pygame.font.SysFont("Arial", 13, bold=True)
-        body_font = pygame.font.SysFont("Arial", 12)
+        title_font = self.panel_title_font
+        body_font = self.panel_body_font
 
         x = margin
 
@@ -707,7 +704,6 @@ root.destroy()
                 )
 
             x += width + gap
-
 
     def get_winner(self):
         if not self.state.is_terminal():
@@ -762,7 +758,6 @@ root.destroy()
             self.last_action = f"P{player} agent error - paused"
             return
 
-
         self.state = self.state.apply_action(action)
 
         tank = self.state.tanks[player]
@@ -786,7 +781,6 @@ root.destroy()
             f"Nodes: {getattr(agent, 'nodes_explored', 0)}"
         )
 
-
         if self.state.is_terminal():
             winner = self.get_winner()
 
@@ -795,23 +789,14 @@ root.destroy()
             else:
                 self.last_action = "GAME OVER - DRAW!"
 
-
     def change_map(self, mode):
         if mode not in MAP_MODES:
             return
 
         self.map_mode = mode
         self.auto_play = False
-
         self.reset()
-
-        self.board_width = self.state.width * CELL_SIZE
-        self.content_height = max(
-            self.state.height * CELL_SIZE, 432
-        )
-
-        self.width = self.board_width + SIDEBAR_WIDTH
-        self.height = self.content_height + PANEL_HEIGHT
+        self._compute_layout()
 
         self.screen = pygame.display.set_mode(
             (self.width, self.height)
@@ -830,15 +815,11 @@ root.destroy()
         self.last_action = f"Map: {MAP_MODES[mode][0]}"
         self.last_turn_time = pygame.time.get_ticks()
 
-
-
-
     def reset(self):
         self.state = MAP_MODES[self.map_mode][1]()
         self.auto_play = False
         self.last_action = "Game reset"
         self.last_turn_time = pygame.time.get_ticks()
-
 
     def run(self):
         while self.running:
@@ -859,12 +840,9 @@ root.destroy()
                         self.reset()
                         self.auto_play = False
 
-
-
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         pos = event.pos
-
                         dropdowns = [
                             (self.dropdown_p1, 1),
                             (self.dropdown_p2, 2),
@@ -872,36 +850,33 @@ root.destroy()
                         ]
 
                         selected = None
+                        toggled_open = None
 
-                        # Click vào menu đang mở được ưu tiên
-                        # trước các dropdown khác.
+                        # Uu tien click vao muc con cua menu dang mo
                         for dropdown, kind in dropdowns:
                             if dropdown.expanded:
                                 if any(
                                     dropdown.option_rect(i).collidepoint(pos)
                                     for i in range(len(dropdown.options))
                                 ):
-                                    selected = (
-                                        kind,
-                                        dropdown.handle_click(pos)
-                                    )
+                                    selected = (kind, dropdown.handle_click(pos))
                                     break
 
+                        # Neu khong click muc con, kiem tra click vao nut dropdown
                         if selected is None:
                             for dropdown, kind in dropdowns:
                                 if dropdown.rect.collidepoint(pos):
-                                    selected = (
-                                        kind,
-                                        dropdown.handle_click(pos)
-                                    )
+                                    if not dropdown.expanded:
+                                        toggled_open = dropdown
                                     break
 
                         for dropdown, _ in dropdowns:
                             dropdown.expanded = False
 
-                        if selected is not None:
+                        if toggled_open is not None:
+                            toggled_open.expanded = True
+                        elif selected is not None:
                             kind, mode = selected
-
                             if mode is not None:
                                 if kind == 1:
                                     self.change_agent(1, mode)
@@ -909,15 +884,6 @@ root.destroy()
                                     self.change_agent(2, mode)
                                 else:
                                     self.change_map(mode)
-                            else:
-                                # Click vào nút dropdown:
-                                # mở menu đã chọn.
-                                for dropdown, k in dropdowns:
-                                    if k == kind:
-                                        dropdown.expanded = True
-                                        break
-
-
 
             if self.auto_play:
                 now = pygame.time.get_ticks()
@@ -947,4 +913,3 @@ root.destroy()
 if __name__ == "__main__":
     app = TankBattleGUI()
     app.run()
-

@@ -1,35 +1,34 @@
-% Phần Task 3 cho báo cáo IEEE (dán vào Overleaf, trong phần thân của bài).
-% Cần: \usepackage{booktabs} nếu muốn dùng \toprule; ở đây dùng \hline nên không bắt buộc.
-
-\section{Kakuro as a Constraint Satisfaction Problem}
+\section{Task 3: Kakuro as a Constraint Satisfaction Problem}
 
 \subsection{Formulation}
-We model Kakuro as a CSP. Each white cell $(r,c)$ is a variable with domain $\{1,\dots,9\}$. A \emph{run} is a maximal sequence of consecutive white cells in a row or column that follows a clue cell. Every run $R$ with clue $s_R$ imposes two constraints: (i) all-different, i.e., the values in $R$ are pairwise distinct, and (ii) the values in $R$ sum to $s_R$. Both constraints are $n$-ary, and every white cell belongs to exactly two runs (one horizontal, one vertical). The $5\times5$ example has 12 variables and 8 runs; the $9\times9$ test case has 48 variables and 28 runs, and the sum of horizontal clues equals the sum of vertical clues (249).
+We model Kakuro as a CSP. Each white cell $(r,c)$ is a variable with domain $\{1,\dots,9\}$. A \emph{run} is a maximal sequence of consecutive white cells in a row or column following a clue cell. Every run $R$ with clue $s_R$ imposes two $n$-ary constraints: (i)~all-different, requiring pairwise distinct values in $R$, and (ii)~the values in $R$ must sum to $s_R$. Every white cell belongs to exactly two runs (one horizontal and one vertical). The $5\times5$ example has 12 variables and 8 runs (clue sum 60), whereas the $9\times9$ test case has 48 variables and 28 runs, with horizontal and vertical clue sums both equal to 249.
 
-\subsection{Approach}
-The solver combines constraint propagation with backtracking search. For each run, the valid digit combinations of the given length and sum are precomputed and cached. During propagation, combinations inconsistent with the values already assigned in the run are discarded, and the domain of each unassigned cell is reduced to the union of digits in the remaining combinations; this repeats until a fixed point, and an empty domain or an empty combination set triggers backtracking. Search uses the Minimum Remaining Values (MRV) heuristic for variable selection, the Degree heuristic as a tie-breaker, and optionally Least Constraining Value (LCV) for value ordering. Domains and assignments are saved before each trial and restored on backtracking.
+\subsection{Approach and Visualization}
+The solver combines constraint propagation with backtracking search. Valid digit combinations for each run length and target sum are precomputed and cached. During propagation, combinations inconsistent with already assigned values or the current domains of unassigned cells in a run are discarded: every unassigned cell must share at least one candidate with the remaining digits of a combination, and every remaining digit must appear in at least one unassigned cell's domain. The domain of each unassigned cell is then intersected with the union of digits in the surviving combinations minus the digits already assigned in that run. Because narrowing a cell's domain can eliminate combinations in its intersecting perpendicular run, propagation iterates to a fixed point, triggering backtracking whenever a domain or combination set becomes empty. Search supports Minimum Remaining Values (MRV), Degree, MRV with Degree tie-breaking, and Least Constraining Value (LCV), saving and restoring domains and assignments at each branching step.
+
+To visualize the solving process without modifying the core solver, an event bus (\texttt{EventEmitter}) records solver events and snapshots for a Tkinter GUI. The interface renders candidate domains inside each unassigned cell as a $3\times3$ subgrid, highlights constraint propagation (\texttt{DOMAIN\_UPDATE}, yellow), value assignment (\texttt{ASSIGN}, green), and backtracking (\texttt{BACKTRACK}, red), and provides puzzle/heuristic selection alongside step-by-step and variable-speed playback.
 
 \subsection{Experiments}
-All results are on the $9\times9$ board from the assignment. Table~\ref{tab:kakuro} reports the number of assignments, backtracks, and run time for each configuration with propagation enabled (search capped at 50{,}000 assignments).
+All benchmark configurations were evaluated on the $9\times9$ board with propagation enabled and a cap of 50{,}000 assignments (Table~\ref{tab:kakuro}).
 
-\begin{table}[t]
-\caption{Heuristic configurations on the $9\times9$ board.}
+\begin{table}[htbp]
+\caption{Heuristic configurations on the $9\times9$ Kakuro board.}
 \label{tab:kakuro}
 \centering
 \begin{tabular}{llrrr}
 \hline
 Variable & Value & Assign. & Backtr. & Time (s) \\
 \hline
-none & none & 759 & 711 & 0.035 \\
-none & LCV & 169 & 121 & 0.008 \\
-MRV & none & 169 & 121 & 0.008 \\
-MRV & LCV & 2474 & 2426 & 0.103 \\
-MRV+Degree & none & 260 & 212 & 0.011 \\
-MRV+Degree & LCV & 660 & 612 & 0.035 \\
-Degree & none & $>$50000 & -- & limit \\
-Degree & LCV & $>$50000 & -- & limit \\
+none       & none & 77       & 29       & 0.0456 \\
+none       & LCV  & 50       & 2        & 0.0266 \\
+MRV        & none & 64       & 16       & 0.0350 \\
+MRV        & LCV  & 62       & 14       & 0.0332 \\
+MRV+Degree & none & 49       & 1        & 0.0331 \\
+MRV+Degree & LCV  & 52       & 4        & 0.0368 \\
+Degree     & none & 8{,}269  & 8{,}221  & 3.7506 \\
+Degree     & LCV  & 44{,}965 & 44{,}917 & 22.1582 \\
 \hline
 \end{tabular}
 \end{table}
 
-MRV gives the fewest assignments (169). The effect of LCV is not consistent: it reduces assignments with a fixed variable order (759 to 169) but increases them when combined with MRV (169 to 2474), so on this single board we only conclude that LCV is unreliable. Degree alone hits the limit. Disabling propagation requires 186{,}504 assignments, more than a thousand times as many as with propagation. The solver returned a valid solution in every run, produced identical solutions and search counts over 20 repeated runs, correctly reported unsolvable boards, and returned a valid solution for a board with two solutions. An independent exhaustive counter confirmed that both the $5\times5$ and $9\times9$ boards have exactly one solution.
+With fixed-point domain-aware propagation pruning combinations across intersecting runs, all eight configurations complete within the 50{,}000-assignment cap. \emph{MRV+Degree} without LCV achieves the fewest assignments (49 assignments, 1 backtrack, 0.0331~s), followed closely by \emph{none+LCV} (50 assignments, 2 backtracks, 0.0266~s) and \emph{MRV+Degree+LCV} (52 assignments, 4 backtracks, 0.0368~s). On this board, LCV reduces search under fixed ordering (77 to 50) and slightly improves standalone MRV (64 to 62), whereas it slightly increases assignments for MRV+Degree (49 to 52) and substantially degrades standalone Degree (8{,}269 to 44{,}965). Overall, Degree alone remains orders of magnitude slower than MRV-based selection (3.7506~s and 22.1582~s) because it ignores propagated domain sizes. Disabling propagation increases the search to 186{,}504 assignments (186{,}456 backtracks, over $2{,}900\times$ more than MRV with propagation). Across 20 repeated runs, the solver returned identical valid solutions and exact search counts (12 assignments and 0 backtracks on $5\times5$; 64 assignments and 16 backtracks on $9\times9$), properly rejected unsolvable boards, and solved a multi-solution test board. An independent exhaustive counter confirmed that both the $5\times5$ and $9\times9$ assignment boards have unique solutions.

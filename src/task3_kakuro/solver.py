@@ -53,8 +53,7 @@ class KakuroSolver:
 
     # ---------- lan truyền ràng buộc ----------
     def constraint_propagation(self):
-        """Lọc tổ hợp của từng run theo các giá trị đã gán, rồi thu hẹp miền các ô còn trống.
-
+        """Lọc tổ hợp của từng run theo giá trị đã gán và miền hiện tại, rồi thu hẹp miền các ô còn trống.
         Lặp đến khi không còn thay đổi. Trả về False nếu có miền rỗng hoặc run hết tổ hợp.
         """
         changed = True
@@ -65,13 +64,26 @@ class KakuroSolver:
 
                 # Giữ tổ hợp chứa mọi giá trị đã gán trong run
                 current_values = [c.value for c in run.cells if c.value != 0]
-                filtered_combos = [combo for combo in valid_combos
-                                   if all(val in combo for val in current_values)]
+                if len(current_values) != len(set(current_values)):
+                    return False
+
+                assigned_set = set(current_values)
+                unassigned_cells = [c for c in run.cells if c.value == 0]
+
+                filtered_combos = []
+                for combo in valid_combos:
+                    if not assigned_set.issubset(combo):
+                        continue
+                    rem = set(combo) - assigned_set
+                    if (all(cell.domain & rem for cell in unassigned_cells)
+                            and all(any(d in cell.domain for cell in unassigned_cells) for d in rem)):
+                        filtered_combos.append(combo)
+
                 if not filtered_combos:
                     return False
 
                 # Miền khả dĩ của ô = hợp mọi chữ số của các tổ hợp còn sống
-                possible_digits = set().union(*filtered_combos)
+                possible_digits = set().union(*filtered_combos) - set(current_values)
                 for cell in run.cells:
                     if cell.value == 0:
                         new_domain = cell.domain & possible_digits

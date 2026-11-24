@@ -57,6 +57,8 @@ class QueensApp:
         self.info = ["Choose a method:", "Run Min-Conflicts or Solve with SAT."]
         self.bad_cols, self.bad_pairs = set(), []
         self.acc = 0.0
+        cell = BOARD_PX // self.n
+        self.q_font = pygame.font.Font(None, max(12, int(cell * 0.7)))
 
     def _set_queens(self, q):
         self.queens = list(q)
@@ -198,7 +200,7 @@ class QueensApp:
                 pygame.draw.circle(s, RING, pos, rad + max(2, cell // 12))
             pygame.draw.circle(s, QUEEN_BAD if c in self.bad_cols else QUEEN_OK, pos, rad)
             if cell >= 22:
-                t = pygame.font.Font(None, int(cell * 0.7)).render("Q", True, (255, 255, 255))
+                t = self.q_font.render("Q", True, (255, 255, 255))
                 s.blit(t, t.get_rect(center=pos))
 
         mouse = pygame.mouse.get_pos()

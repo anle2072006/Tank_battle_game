@@ -3,12 +3,10 @@ from collections import Counter
 from board import Board
 from solver import KakuroSolver
 from events import event_bus
-from validator import Validator
 from experiments import (compare_configs, results_table, stability_test, run_config,
                          count_solutions, is_fully_valid)
 from puzzles import (SAMPLE_5X5, SAMPLE_9X9, UNSOLVABLE_COMBO, UNSOLVABLE_SEARCH,
                      MULTI_SOLUTION)
-
 MAX_ASSIGNMENTS = 50000
 
 

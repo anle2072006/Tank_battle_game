@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict
 
 
 class Action(Enum):
@@ -122,6 +122,14 @@ class GameState:
             nx, ny = tank.x + dx, tank.y + dy
             if not next_state.is_cell_blocked(nx, ny):
                 tank.x, tank.y = nx, ny
+                # Kiểm tra va chạm ngay nếu xe tăng vừa bước vào ô đang có đạn bay
+                remaining_bullets = []
+                for bullet in next_state.bullets:
+                    if tank.hp > 0 and bullet.x == tank.x and bullet.y == tank.y:
+                        tank.hp -= 1
+                    else:
+                        remaining_bullets.append(bullet)
+                next_state.bullets = remaining_bullets
         elif action == Action.FIRE:
             next_state.bullets.append(Bullet(tank.player_id, tank.x, tank.y, tank.direction))
 

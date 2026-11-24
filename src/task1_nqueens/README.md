@@ -1,4 +1,4 @@
-# Task 1 – N-Queens (Local Search & Propositional Logic)
+# Task 1 - N-Queens (Local Search & Propositional Logic)
 
 ## Requirements
 Python 3.9+ and the packages in `requirements.txt`:
@@ -13,7 +13,7 @@ Python 3.9+ and the packages in `requirements.txt`:
     main.py                  command-line demo
     gui.py                   PyGame GUI (animated Min-Conflicts + SAT)
     run_experiments.py       experiments -> results/*.csv, results/*.png
-    demo.txt                 sample output
+    sample_output.txt        sample output
 
 ## Usage
     python main.py --n 8 --method sat

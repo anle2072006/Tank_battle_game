@@ -1,5 +1,5 @@
 class EventType:
-    """Tên các sự kiện solver phát ra cho UI (xem EVENTS.md)."""
+    """Tên các sự kiện solver phát ra cho UI."""
     INIT = "INIT"                    # bắt đầu giải
     DOMAIN_UPDATE = "DOMAIN_UPDATE"  # miền của một ô bị thu hẹp (lan truyền ràng buộc)
     ASSIGN = "ASSIGN"                # thử gán giá trị cho một ô

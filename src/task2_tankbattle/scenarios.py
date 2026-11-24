@@ -1,18 +1,18 @@
-from engine import GameState, Tank, Base, Bullet
+from engine import GameState, Tank, Base
 
 class MapBuilder:
     """
     Xây dựng bản đồ từ lưới ký tự (Grid String) giúp dễ dàng thiết kế kịch bản:
     '.' : Ô trống
     '#' : Tường gạch (HP = 3)
-    'B1': Base người chơi 1 (HP = 9)
-    'B2': Base người chơi 2 (HP = 9)
-    'T1': Xe tăng người chơi 1 (HP = 6)
-    'T2': Xe tăng người chơi 2 (HP = 6)
+    'A' : Căn cứ (Base) người chơi 1 (HP = 9)
+    'B' : Căn cứ (Base) người chơi 2 (HP = 9)
+    '1' : Xe tăng người chơi 1 (HP = 6)
+    '2' : Xe tăng người chơi 2 (HP = 6)
     """
     @staticmethod
     def from_grid(grid_lines: list[str], p1_dir="DOWN", p2_dir="UP", 
-                  p1_hp=6, p2_hp=6) -> GameState:
+                  p1_hp=6, p2_hp=6, base_hp=9) -> GameState:
         height = len(grid_lines)
         width = len(grid_lines[0])
         tanks = {}
@@ -28,41 +28,42 @@ class MapBuilder:
                 elif ch == '2':
                     tanks[2] = Tank(2, x, y, direction=p2_dir, hp=p2_hp)
                 elif ch == 'A':  # Base 1
-                    bases[1] = Base(1, x, y, hp=9)
+                    bases[1] = Base(1, x, y, hp=base_hp)
                 elif ch == 'B':  # Base 2
-                    bases[2] = Base(2, x, y, hp=9)
+                    bases[2] = Base(2, x, y, hp=base_hp)
 
         return GameState(width, height, tanks, bases, walls, bullets=[], current_turn=1)
 
     @staticmethod
     def get_endgame_scenario() -> GameState:
         """
-        Kịch bản 1 (Endgame): 2 xe tăng chỉ còn 1 HP và đứng gần nhau.
-        Giúp Minimax thuần và Alpha-Beta thuần chạm tới Terminal State ở độ sâu d = 3, 4.
+        Kịch bản 1 (Endgame): Bản đồ 7x5 đối xứng tâm, mô phỏng tàn cuộc quyết định
+        (Tank 2 HP, Base 2 HP). Ở độ sâu d <= 4, chỉ Heuristic nhận ra lợi thế của
+        MOVE_DOWN (nên trên GUI d=4, nếu P1 dùng AI thuần gặp P2 Heuristic thì P2 thắng);
+        tại d = 5, cả 4 thuật toán đều nhìn thấy trạng thái kết thúc và chọn MOVE_DOWN.
         """
         grid = [
-            "...A...",
-            ".......",
-            "..1.#..",
-            "....2..",
-            ".......",
-            "...B..."
+            ".A.....",
+            "..#..1.",
+            "...#...",
+            ".2..#..",
+            ".....B."
         ]
-        return MapBuilder.from_grid(grid, p1_dir="DOWN", p2_dir="LEFT", p1_hp=1, p2_hp=1)
+        return MapBuilder.from_grid(grid, p1_dir="LEFT", p2_dir="RIGHT", p1_hp=2, p2_hp=2, base_hp=2)
 
     @staticmethod
     def get_midgame_scenario() -> GameState:
         """
-        Kịch bản 2 (Mid-game): Bản đồ đối xứng chuẩn có tường chắn bảo vệ Base.
+        Kịch bản 2 (Mid-game): Bản đồ đối xứng tâm có tường chắn bảo vệ Base.
         """
         grid = [
             "....A....",
             "...###...",
-            "....1....",
+            "...1.....",
             ".##...##.",
             "....#....",
             ".##...##.",
-            "....2....",
+            ".....2...",
             "...###...",
             "....B...."
         ]
@@ -70,12 +71,12 @@ class MapBuilder:
     
     @staticmethod
     def get_battle_city_map() -> GameState:
-        # Ban do kich thuoc 13x13 mo phong man choi Battle City co dien.
-        # Ky hieu: 'A', 'B' la căn cứ (HP=9); '1', '2' la xe tang (HP=6); '#' la tuong gach (HP=3).
+        # Ban do kich thuoc 13x13 mo phong man choi Battle City co dien (doi xung tam).
+        # Ky hieu: 'A', 'B' la can cu (HP=9); '1', '2' la xe tang (HP=6); '#' la tuong gach (HP=3).
         grid = [
             ".....#A#.....",
             "..#..###..#..",
-            "..#...1...#..",
+            "..#.1.....#..",
             "..#..###..#..",
             ".............",
             "###..###..###",
@@ -83,7 +84,7 @@ class MapBuilder:
             "###..###..###",
             ".............",
             "..#..###..#..",
-            "..#...2...#..",
+            "..#.....2.#..",
             "..#..###..#..",
             ".....#B#....."
         ]

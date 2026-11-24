@@ -5,6 +5,7 @@
 """
 import argparse
 import csv
+import os
 import statistics as st
 
 import matplotlib
@@ -87,7 +88,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true")
     a = ap.parse_args()
-
+    os.makedirs(OUT, exist_ok=True)
+    
     sat_ns = [4, 5, 6, 8, 10, 12, 16, 20] if a.quick else [4, 5, 6, 8, 10, 12, 16, 20, 24, 28, 32, 40, 50]
     mc_ns = [8, 16, 32, 64] if a.quick else [8, 16, 32, 64, 128, 256, 512, 1000]
     runs = 5 if a.quick else 20

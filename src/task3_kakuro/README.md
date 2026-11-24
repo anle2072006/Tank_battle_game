@@ -1,4 +1,4 @@
-# Task 3 – Kakuro (Constraint Satisfaction Problem)
+# Task 3 - Kakuro (Constraint Satisfaction Problem)
 
 Solve Kakuro puzzles using Constraint Propagation, Backtracking Search, and CSP heuristics. Includes an interactive GUI for visualizing the solving process.
 
@@ -22,21 +22,20 @@ sudo pacman -S tk
 
 ## Structure
 
-```text
-task3_kakuro/
-├── board.py           # Board, cells, runs, and domains
-├── combos.py          # Valid digit combinations
-├── solver.py          # Constraint propagation and backtracking
-├── validator.py       # Constraint validation
-├── events.py          # Solver events for visualization
-├── puzzles.py         # Sample 5x5 and 9x9 puzzles
-├── experiments.py     # Heuristic comparison and testing
-├── main.py            # Console demo and experiments
-├── gui.py             # Interactive Kakuro visualizer
-├── notebook.ipynb     # Jupyter notebook
-├── requirements.txt   # Python dependencies
-└── README.md
-```
+    task3_kakuro/
+    - board.py           Board, cells, runs, and domains
+    - combos.py          Valid digit combinations
+    - solver.py          Constraint propagation and backtracking
+    - validator.py       Constraint validation
+    - events.py          Solver events for visualization
+    - puzzles.py         Sample 5x5 and 9x9 puzzles
+    - experiments.py     Heuristic comparison and testing
+    - main.py            Console demo and experiments
+    - gui.py             Interactive Kakuro visualizer
+    - notebook.ipynb     Jupyter notebook
+    - report_task3.tex   LaTeX report section for Task 3
+    - requirements.txt   Python dependencies
+    - README.md          Usage instructions
 
 ## Usage
 
